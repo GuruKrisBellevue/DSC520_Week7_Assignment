@@ -1,0 +1,215 @@
+---
+title: "Week7_Assignment_Part2_Guruprasad_VelikaduKrishnamoorthy"
+author: "Guruprasad Velikadu Krishnamoorthy"
+date: "2023-01-29"
+output: 
+  pdf_document: 
+    highlight: espresso
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "C:/Users/Gurup/GURU/Learning/Masters/Term_2/DSC520_T302_Statistics_for_Data_Science/Week_7/")
+knitr::opts_chunk$set(tidy.opts = list(width.cutoff = 90), tidy = TRUE)
+```
+### Loading Required Libraries
+```{r}
+library(GGally,quietly = TRUE)
+library(rstatix)
+library(magrittr)
+library(dplyr)
+library(corrplot)
+library(ggm)
+```
+
+
+### i. Use R to calculate the covariance of the Survey variables and provide an explanation of why you would use this calculation and what the results indicate.
+```{r}
+# Reading from the student-survey file
+student_survey <- read.csv("student-survey.csv")
+# Calculating the Covariance of all fields in the DataFrame 
+cov(student_survey)
+# Calculating the covariance excluding Gender- the Categorical variable 
+cov(student_survey[,c(1:3)])
+
+# Solution: Covariance indicates the direction of linear relationship between the variables. Positive covariance indicates that as one variable deviates from mean, the other variable also deviates in the same direction and the Negative Covariance indicates that it occurs in the opposite direction.The Covariance values are not standardized and the values can range from Infinity to - Infinity.
+# The results of covariance function indicates, positive relation between TimeTV and Happiness. Whereas the results indicates negative relation between TimeTV vs TimeReading and TimeReading vs Happiness. In simple words, students were happier watching TV than Reading.Also Time spent watching TV and Reading had an inverse relationship.
+
+```
+
+### ii.Examine the Survey data variables. What measurement is being used for the variables? Explain what effect changing the measurement being used for the variables would have on the covariance calculation. Would this be a problem? Explain and provide a better alternative if needed.
+```{r}
+# Solution: Examining the variables, it appears the Time spent Reading and Time spent watching TV does not seem to be measured in the same unit. TimeReading appears to be in Hours, while TimeTV seems like Minutes. This can have a big effect in the results of covariance as it is not standardized. As an experiment, I tried to convert the minutes into Hours as shown below :
+student_survey1 <- student_survey
+student_survey1$TimeTV <- student_survey1$TimeTV/60
+
+# The results of covariance are significant as shown in the results between Covariance of TimeTV vs Happiness.
+cov(student_survey$TimeTV,student_survey$Happiness)
+cov(student_survey1$TimeTV,student_survey1$Happiness)
+
+# To solve this problem, the results can be expressed in Standard deviation units as demonstrated below. This is also called as Correlation.
+cov_by_sd <- round(cov(student_survey$TimeTV,student_survey$Happiness)/(sd(student_survey$TimeTV) * sd(student_survey$Happiness)),2)
+cov_by_sd1 <- round(cov(student_survey1$TimeTV,student_survey1$Happiness)/(sd(student_survey1$TimeTV) * sd(student_survey1$Happiness)),2)
+cov_by_sd
+cov_by_sd1
+# Comparing the results after standardizing the values
+identical(cov_by_sd,cov_by_sd1)
+```
+
+### iii. Choose the type of correlation test to perform, explain why you chose this test, and make a prediction if the test yields a positive or negative correlation?
+```{r}
+# Solution: The first steps to identify the correlation method of testing is to Plot the data (using ggally) to study the relationship. The results shows that there is a negative linear relationship between Time reading and Time TV, so I would pick Pearson for that.For the Gender variable correlations, I would use Pearson. However, as the dataset is small Kendall can also be a choice to perform correlation on the entire dataset.Also, the reason I wouldn't pick Spearman is that the data is not Ordinal.
+# Hence picking Pearson method would be much ideal for the dataset provided.
+# Prediction: Based on the results of the plot, I would predict a negative correlation between TimeReading vs TimeTV.Also I predict a positive correlation between TimeTV vs Happiness based on the results of the plot.
+
+
+GGally::ggpairs(student_survey)
+```
+
+### iv.a. Perform a correlation analysis of All variables
+```{r}
+# Solution:  All 3 methods of correlation tests are used to show the results. However as stated in the question above, Pearson would be my choice to perform the test.
+cr1_pear <- cor(student_survey,use="complete.obs",method="pearson")
+cr1_pear
+
+# Calculating  Correlation using Kendall method
+cr2_kend <- cor(student_survey,use="complete.obs",method="kendall")
+cr2_kend
+# Calculating  Correlation using Spearman method
+cr3_spear <- cor(student_survey,use="complete.obs",method="spearman")
+cr3_spear
+```
+
+```{r}
+# The Dataset does not say what the symbol in Gender stands for. So I assumed 1 is for Male and 0 is for Female and derived below dataframes
+
+student_survey_male <- student_survey %>% filter(Gender==1) %>% select(1,2,3)
+student_survey_female <- student_survey %>% filter(Gender==0) %>% select(1,2,3)
+student_survey_female
+student_survey_male
+
+# Another effective way of calculating correlation between all the variables. Results of correlation are arranged in order.
+rstatix::cor_test(student_survey, method = "pearson") %>% select(var1,var2,cor) %>% arrange(cor)
+# Correlation between all Variables for Male
+rstatix::cor_test(student_survey_male, method = "pearson") %>% select(var1,var2,cor) %>% arrange(cor)
+# Correlation between all Variables for Female
+rstatix::cor_test(student_survey_female, method = "pearson") %>% select(var1,var2,cor) %>% arrange(cor)
+
+```
+
+
+
+### iv. b) A single correlation between two a pair of the variables
+```{r}
+cor.test(student_survey$TimeTV,student_survey$Happiness,method="pearson",conf.level = 0.95)
+# The results indicates a p value of 0.035 which is less than 0.05 and hence we can reject the null hypothesis and consider the Alternative hypotheses that the Correlation does exist between the Time spent watching TV and Happiness.Also the ranges in the Confidence interval  0.05934031 & 0.89476238 is above zero which indicates that there is perhaps a correlation between the variables.
+
+# The below examples show the correlation between two variables on the entire dataset and Male and Female datasets. The results indicate Female students did not enjoy Reading more than the Male students.
+cor(student_survey$Happiness,student_survey$TimeReading)
+cor(student_survey_male$Happiness,student_survey_male$TimeReading)
+cor(student_survey_female$Happiness,student_survey_female$TimeReading)
+
+# The below results indicate students in general were happy watching TV. Female students enjoyed watching TV more than the male students.
+cor(student_survey$Happiness,student_survey$TimeTV)
+cor(student_survey_male$Happiness,student_survey_male$TimeTV)
+cor(student_survey_female$Happiness,student_survey_female$TimeTV)
+```
+
+### iv. c) Repeat your correlation test in step 2 but set the confidence interval at 99%
+```{r}
+cor.test(student_survey$TimeTV,student_survey$Happiness,method="pearson",conf.level =0.99)
+
+# The results indicates a p value of 0.0352 which is less than 0.05 and hence we can reject the null hypothesis and consider the Alternative hypotheses that the Correlation does exist between the Time spent watching TV and Happiness.The actual correlation value is 0.636556
+
+cor.test(student_survey$Happiness,student_survey$TimeReading,method="pearson",conf.level =0.99)
+cor.test(student_survey_male$Happiness,student_survey_male$TimeReading,method="pearson",conf.level =0.99)
+cor.test(student_survey_female$Happiness,student_survey_female$TimeReading,method="pearson",conf.level =0.99)
+
+cor.test(student_survey$Happiness,student_survey$TimeTV,method="pearson",conf.level =0.99)
+cor.test(student_survey_male$Happiness,student_survey_male$TimeTV,method="pearson",conf.level =0.99)
+cor.test(student_survey_female$Happiness,student_survey_female$TimeTV,method="pearson",conf.level =0.99)
+```
+
+### iv. d) Describe what the calculations in the correlation matrix suggest about the relationship between the variables. Be specific with your explanation.
+
+```{r}
+
+corrplot(cr1_pear, method = "color",title="Correlation coefficient HeatMap of Students",mar=c(0,0,2,0))
+# The Correlation Plot suggests the below results:
+# There is a strong Negative Correlation between Time spent watching TV versus time spent reading.
+# There is Negative correlation(Not strong though, since the color is not Dark Red) between Time spent reading and Happiness.
+# There is a positive correlation between Time spent watching TV and Happiness(indicated by Blue color in the plot)
+# There is a slight positive correlation between the Gender and Happiness(indicated by light blue).
+# There is a slight negative correlation between the Gender and Time reading(indicated by light Red)
+# There is no correlation between Gender and Time spent watching TV(Indicated by white color)
+
+
+cr_pear_male <- cor(student_survey_male,use="complete.obs",method="pearson")
+corrplot(cr_pear_male, method = "color",title="Correlation coefficient HeatMap of Male Students",mar=c(0,0,2,0))
+
+# The below plot indicates that Female students in general did not enjoy Reading. They enjoyed reading lesser than Male and also enjoyed watching TV more than Male students.
+cr_pear_female <- cor(student_survey_female,use="complete.obs",method="pearson")
+corrplot(cr_pear_female, method = "color",title="Correlation coefficient HeatMap of Female Students",mar=c(0,0,2,0))
+```
+
+### v) Calculate the correlation coefficient and the coefficient of determination, describe what you conclude about the results.
+```{r}
+# Correlation coefficient
+corr_coeff <- cor(student_survey,method="pearson")
+corr_coeff
+# Coefficient of Determination - R^2
+coeff_of_det <- corr_coeff^2
+coeff_of_det
+# Coefficient of Determination - Shown in Percentage
+coeff_of_det *100
+# Solution: The Correlation coefficient indicates that:
+# Time spent watching TV accounts for 77% variability in the Time spent Reading
+# Happiness accounts for 18% of the variability in the Time spent reading and 40% in the Time spent Watching TV and only 2% of Gender choices.
+# Gender has the least share in the variability of any other other variables in the dataset. 
+```
+
+### vi) Based on your analysis can you say that watching more TV caused students to read less? Explain.
+```{r}
+cor.test(student_survey$TimeTV,student_survey$TimeReading,method="pearson")
+# Solution: Yes watching more TV caused students to read less because there is a strong negative correlation between the 2 variables of -0.883 and also Time spent watching TV accounts for 77% variability in the Time spent Reading. These results are evident from the Correlation plot above which indicates a negative correlation.
+
+cor(student_survey$TimeTV, student_survey$TimeReading, method = "pearson")
+cor(student_survey_male$TimeTV, student_survey_male$TimeReading, method = "pearson")
+cor(student_survey_female$TimeTV, student_survey_female$TimeReading, method = "pearson")
+
+# The above results indicate that the Female students(assuming Gender=0 is female) did not enjoy studying compared to watching TV than the Male students.
+```
+
+
+### vii) Pick three variables and perform a partial correlation, documenting which variable you are “controlling”. Explain how this changes your interpretation and explanation of the results.
+
+```{r}
+# TimeTV vs Happiness 
+cor(student_survey$TimeTV,student_survey$Happiness,method="pearson")
+# TimeTV vs Happiness controlling TimeReading
+pcor(c("TimeTV","Happiness","TimeReading"),var(student_survey))
+# Explanation: The correlation coefficient between Time spent watching TV and Happiness is 0.6365. However while controlling the time spent Reading, the correlation drops to 0.597
+
+# TimeTV vs Time Reading
+cor(student_survey$TimeTV,student_survey$TimeReading,method="pearson")
+# TimeTV vs Time Reading controlling Happiness
+pcor(c("TimeTV","TimeReading","Happiness"),var(student_survey))
+# Explanation: The Correlation  coefficient between Time spent watching TV and Time spent reading is -0.883. However controlling the factor of Happiness, the correlation increases slightly to -0.87
+
+# Gender vs Happiness
+cor(student_survey$Gender,student_survey$Happiness,method="pearson")
+# Gender vs Happiness controlling Time spent on TV and Reading
+pcor(c("Gender","Happiness","TimeTV","TimeReading"),var(student_survey))
+# Explanation: The correlation coefficient between Happiness and the Gender is 0.157. However controlling the Time spent reading and time spent watching TV, the correlation increases to 0.283
+```
+
+# Session Info
+```{r}
+sessionInfo()
+```
+
+
+
+
+
+
